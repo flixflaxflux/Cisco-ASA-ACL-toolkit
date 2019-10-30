@@ -193,14 +193,27 @@ class Rule:
 	def html_obj(self,obj):
 		return '<td>' + '<br />'.join(map(lambda x: str(x), obj)) + '</td>'
 
+	# Print Rule in Meraki Syntax
+	def meraki(self):
+		if not Rule.remark:
+			for src in self.src:
+				for dst in self.dst:
+					for srv in self.srv:
+						proto,ports= srv.split(":") if ":" in srv else [srv,'']
+						print 'access-list ' + self.name + ' line ' + str(self.lnum) + ' extended ' + \
+				' '.join([self.action, proto, str(src.ip), str(src.netmask), str(dst.ip), str(dst.netmask), ports])
+			self.rem = ''
+
 parser = argparse.ArgumentParser()
 parser.add_argument('conf', default="-", nargs='?', help="Cisco ASA conf filename or \"-\" to read from the console (default)")
 out = parser.add_mutually_exclusive_group()
 out.add_argument('--html', default=True, help="Cisco policy to HTML", action="store_true")
 out.add_argument('--acl', default=False, help="Cisco policy to sh access-list", action="store_true")
+out.add_argument('--meraki', default=False, help="Cisco policy to Meraki Syntax", action="store_true")
 parser.add_argument('--noaggr', default=False, help="Do not aggregate networks", action="store_true")
 args = parser.parse_args()
-if args.acl: args.html=False
+
+if args.acl or args.meraki: args.html=False
 
 netobj = {}	# network-objects
 netgrp = {}	# network-groups
@@ -309,6 +322,7 @@ for line in f:
 				rulecnt = 1
 			r=Rule(rulecnt,line)
 			if args.html: r.html()
+			elif args.meraki: r.meraki()
 			else: r.rprint()
 			rulecnt += 1
 		#Assign interfaces and directions to the corresponfing access-groups
@@ -318,3 +332,5 @@ for line in f:
 if args.html:
 	html_tbl_ftr()
 	html_ftr(aclnames)
+
+

@@ -6,7 +6,7 @@ from meraki_sdk.models.policy_enum import PolicyEnum
 from meraki_sdk.models.rule_model import RuleModel
 from meraki_sdk.models.update_network_l3_firewall_rules_model import UpdateNetworkL3FirewallRulesModel
 
-x_cisco_meraki_api_key = '773761ce9a1c963f41b948a43c917403c8ada5a7'
+x_cisco_meraki_api_key = ''
 meraki = MerakiSdkClient(x_cisco_meraki_api_key)
 
 mx_l3_firewall_controller = meraki.mx_l3_firewall

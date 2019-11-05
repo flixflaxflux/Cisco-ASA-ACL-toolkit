@@ -9,11 +9,19 @@ import argparse
 import re
 import sys
 import pprint
+import meraki_api
+
 try:
 	import netaddr
 except ImportError:
 	print >>sys.stderr, 'ERROR: netaddr module not found.'
 	sys.exit(1)
+
+def check_service(service):
+	if service == 'eq smtp':
+		return '25'
+	else:
+		return service
 
 # If new object is found, add it to the group
 # And set the current names
@@ -193,16 +201,21 @@ class Rule:
 	def html_obj(self,obj):
 		return '<td>' + '<br />'.join(map(lambda x: str(x), obj)) + '</td>'
 
-	# Print Rule in Meraki Syntax
-	def meraki(self):
+	#Create ACL in Meraki-JSON Format and return the Dict acl_list
+	def meraki_json(self):
+
+		acl_list = []
+
 		if not Rule.remark:
 			for src in self.src:
 				for dst in self.dst:
 					for srv in self.srv:
 						proto,ports= srv.split(":") if ":" in srv else [srv,'']
-						print 'access-list ' + self.name + ' line ' + str(self.lnum) + ' extended ' + \
-				' '.join([self.action, proto, str(src.ip), str(src.netmask), str(dst.ip), str(dst.netmask), ports])
-			self.rem = ''
+						#ports = check_service(ports)
+						acl_dict = { "comment": 'access-list ' + self.name + ' line ' + str(self.lnum) + ' extended ', "policy": self.action, "protocol": proto,"srcPort":"any", "srcCidr": str(src), "destCidr": str(dst), "destPort": ports}
+						acl_list.append(acl_dict)
+		return acl_list
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('conf', default="-", nargs='?', help="Cisco ASA conf filename or \"-\" to read from the console (default)")
@@ -213,7 +226,9 @@ out.add_argument('--meraki', default=False, help="Cisco policy to Meraki Syntax"
 parser.add_argument('--noaggr', default=False, help="Do not aggregate networks", action="store_true")
 args = parser.parse_args()
 
-if args.acl or args.meraki: args.html=False
+#if args.acl or args.meraki: args.html=False
+args.html=False
+args.meraki_json=True
 
 netobj = {}	# network-objects
 netgrp = {}	# network-groups
@@ -222,6 +237,7 @@ aclmode = False
 rulecnt = 0 # ACL rule counter
 curacl = '' # current ACL name
 aclnames = {} # ACL names and interfaces
+meraki_acl_json = []
 # global curobj points to the current dict: netobj, netgrp or srvgrp
 # global curname points to the current object name
 # curproto points to the current protocol
@@ -265,8 +281,8 @@ re_aclname = re.compile('^\s*access-list\s+(?P<acl_name>\S+)\s+', re.IGNORECASE)
 #access-group management_acl in interface management
 re_aclgrp = re.compile('^\s*access-group\s+(?P<acl_name>\S+)\s+(?P<acl_int>.*$)', re.IGNORECASE)
 
-f=sys.stdin if "-" == args.conf else open (args.conf,"r")
-
+#f=sys.stdin if "-" == args.conf else open ("test_conf","r")
+f = open("test_conf","r")
 
 for line in f:
 	line = line.strip()
@@ -322,12 +338,16 @@ for line in f:
 				rulecnt = 1
 			r=Rule(rulecnt,line)
 			if args.html: r.html()
-			elif args.meraki: r.meraki()
+			#Create ACL in Meraki JSON Format and put all in the meraki_json_list
+			elif args.meraki_json: meraki_acl_json.extend(r.meraki_json())
 			else: r.rprint()
 			rulecnt += 1
 		#Assign interfaces and directions to the corresponfing access-groups
 		elif re_aclgrp.search(line):
 			aclnames[re_aclgrp.search(line).group('acl_name')] = re_aclgrp.search(line).group('acl_int')
+print(str(meraki_acl_json))
+# set Meraki Rules in the Dashboard
+meraki_api.set_meraki_rule(meraki_acl_json)
 
 if args.html:
 	html_tbl_ftr()

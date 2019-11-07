@@ -16,20 +16,21 @@ orgs = meraki.organizations.get_organizations()
 
 print(orgs)
 
-id = orgs[0]["id"]
+id = orgs[1]["id"]
 
 collect = {}
 collect['organization_id'] = id
 nets = networks_controller.get_organization_networks(collect)
 print(nets)
 
-for line in nets:
-    print(line["id"])
-    l3_rules = mx_l3_firewall_controller.get_network_l3_firewall_rules(line["id"])
-    print(l3_rules)
+#get rules
+#for line in nets:
+#    print(line["id"])
+#    l3_rules = mx_l3_firewall_controller.get_network_l3_firewall_rules(line["id"])
+#    print(l3_rules)
 
 collect = {}
-network_id = 'N_596726950626606580'
+network_id = 'N_679480593779539752'
 collect['network_id'] = network_id
 
 def set_meraki_rule(Rules):
@@ -44,10 +45,10 @@ def set_meraki_rule(Rules):
         update_network_l_3_firewall_rules.rules.append(RuleModel())
         update_network_l_3_firewall_rules.rules[i].comment = rule["comment"]
         update_network_l_3_firewall_rules.rules[i].policy = "allow" if "permit" in rule["policy"] else "deny"
-        update_network_l_3_firewall_rules.rules[i].protocol = rule["protocol"]
+        update_network_l_3_firewall_rules.rules[i].protocol = "any" if "ip" in rule["protocol"] else rule["protocol"]
         update_network_l_3_firewall_rules.rules[i].src_port = 'any'
         update_network_l_3_firewall_rules.rules[i].src_cidr = "any" if "0.0.0.0/0" in rule["srcCidr"] else rule["srcCidr"]
-        update_network_l_3_firewall_rules.rules[i].dest_port = rule["destPort"]
+        update_network_l_3_firewall_rules.rules[i].dest_port = "any" if "" in rule["destPort"] else rule["destPort"]
         update_network_l_3_firewall_rules.rules[i].dest_cidr = "any" if "0.0.0.0/0" in rule["destCidr"] else rule["destCidr"]
         update_network_l_3_firewall_rules.rules[i].syslog_enabled = False
 

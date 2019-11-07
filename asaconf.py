@@ -20,9 +20,11 @@ except ImportError:
 
 
 def check_service(service):
-    service_dict = {"echo":"", "eq smtp":"25", "eq ssh":"22", "eq www":"80", "eq https":"443", "eq imap4":"993", "eq imap":"143", "eq netbios-ssn":"139", "SMB-CIFS":"445", "eq domain":"53", "eq ntp":"23", "eq ldaps":"636"}
+    service_dict = {"echo":"", "eq smtp":"25", "eq ssh":"22", "eq www":"80", "eq https":"443", "eq imap4":"993", "eq imap":"143", "eq netbios-ssn":"139", "SMB-CIFS":"445", "eq domain":"53", "eq tftp":"69", "eq ntp":"23", "eq snmp":"162", "eq ldaps":"636", "eq h323":"1720", "eq sip":"5060"}
     if service in service_dict.keys():
         return service_dict[service]
+    elif len(service.split()) > 1 and service.split()[0] == 'range':
+        return service.split()[1]+'-'+service.split()[2]
     else:
         return service[3:]
 
@@ -300,7 +302,7 @@ re_aclname = re.compile('^\s*access-list\s+(?P<acl_name>\S+)\s+', re.IGNORECASE)
 re_aclgrp = re.compile('^\s*access-group\s+(?P<acl_name>\S+)\s+(?P<acl_int>.*$)', re.IGNORECASE)
 
 # f=sys.stdin if "-" == args.conf else open ("test_conf","r")
-f = open("dev-dmz.conf.txt", "r")
+f = open("vdmz.conf.txt", "r")
 
 for line in f:
     line = line.strip()

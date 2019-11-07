@@ -2,6 +2,7 @@ object-group network inside-n
  network-object 192.168.1.0 255.255.255.0
  network-object 192.168.5.0 255.255.255.0
  network-object 10.10.0.0 255.255.0.0
+ network-object 169.16.0.0 255.255.255.0
 object network mail1.pcom.de
  subnet 194.25.152.0 255.255.255.224
 

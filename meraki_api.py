@@ -46,9 +46,9 @@ def set_meraki_rule(Rules):
         update_network_l_3_firewall_rules.rules[i].policy = "allow" if "permit" in rule["policy"] else "deny"
         update_network_l_3_firewall_rules.rules[i].protocol = rule["protocol"]
         update_network_l_3_firewall_rules.rules[i].src_port = 'any'
-        update_network_l_3_firewall_rules.rules[i].src_cidr = rule["srcCidr"]
+        update_network_l_3_firewall_rules.rules[i].src_cidr = "any" if "0.0.0.0/0" in rule["srcCidr"] else rule["srcCidr"]
         update_network_l_3_firewall_rules.rules[i].dest_port = rule["destPort"]
-        update_network_l_3_firewall_rules.rules[i].dest_cidr = rule["destCidr"]
+        update_network_l_3_firewall_rules.rules[i].dest_cidr = "any" if "0.0.0.0/0" in rule["destCidr"] else rule["destCidr"]
         update_network_l_3_firewall_rules.rules[i].syslog_enabled = False
 
         i = i + 1

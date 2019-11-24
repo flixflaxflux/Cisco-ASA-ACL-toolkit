@@ -11,6 +11,7 @@ import sys
 import pprint
 import meraki_api
 import json
+from pprint import pprint
 
 
 try:
@@ -229,6 +230,7 @@ class Rule:
                 for dst in self.dst:
                     for srv in self.srv:
                         proto, ports = srv.split(":") if ":" in srv else [srv, '']
+                        print(ports)
                         ports = check_service(ports)
                         acl_dict = {"comment": 'access-list ' + self.name + ' line ' + str(self.lnum) + ' extended ',
                                     "policy": self.action, "protocol": proto, "srcPort": "any", "srcCidr": str(src),
@@ -254,6 +256,7 @@ args.acl = False
 
 netobj = {}  # network-objects
 netgrp = {}  # network-groups
+#srvobj = {}  # service-objects
 srvgrp = {}  # service-groups
 aclmode = False
 rulecnt = 0  # ACL rule counter
@@ -269,6 +272,8 @@ meraki_acl_json = []
 re_hostname = re.compile('^\s*hostname\s+(?P<hostname>\S+)', re.IGNORECASE)
 # object network mynet1
 re_objnet = re.compile('^\s*object\s+network\s+(?P<obj_name>\S+)', re.IGNORECASE)
+# object service mynet1
+re_objsrv = re.compile('^\s*object\s+service\s+(?P<obj_name>\S+)', re.IGNORECASE)
 # subnet 10.1.2.0 255.255.255.0
 re_subnet = re.compile('^\s*subnet\s+(?P<ip>\S+)\s+(?P<mask>\S+)', re.IGNORECASE)
 # host 10.2.1.41
@@ -291,6 +296,8 @@ re_portobj = re.compile('^\s*port-object\s+(?P<service>.*$)', re.IGNORECASE)
 re_grpobj = re.compile('^\s*group-object\s+(?P<grp_obj>\S+)', re.IGNORECASE)
 # service-object tcp destination eq 123
 re_srvobj = re.compile('^\s*service-object\s+(?P<proto>\S+)(\s+destination)?\s+(?P<service>.*$)', re.IGNORECASE)
+# service tcp destination eq 123
+re_srvobj2 = re.compile('^\s*service\s+(?P<proto>\S+)(\s+destination)?\s+(?P<service>.*$)', re.IGNORECASE)
 # service-object 97
 re_srvobj_ip = re.compile('^\s*service-object\s+(?P<proto>\d+)', re.IGNORECASE)
 # access-list acl_name extended ...
@@ -303,7 +310,7 @@ re_aclname = re.compile('^\s*access-list\s+(?P<acl_name>\S+)\s+', re.IGNORECASE)
 re_aclgrp = re.compile('^\s*access-group\s+(?P<acl_name>\S+)\s+(?P<acl_int>.*$)', re.IGNORECASE)
 
 # f=sys.stdin if "-" == args.conf else open ("test_conf","r")
-f = open("conf_dev-dmz.txt", "r")
+f = open("int_dev-dmz", "r")
 
 for line in f:
     line = line.strip()
@@ -313,6 +320,8 @@ for line in f:
             html_hdr(re_hostname.search(line).group('hostname'))
         elif re_objnet.search(line):
             newobj(netobj, re_objnet.search(line).group('obj_name'))
+        #elif re_objsrv.search(line):
+        #    newobj(srvobj, re_objsrv.search(line).group('obj_name'))
         elif re_subnet.search(line):
             curobj[curname] = netaddr.IPNetwork(re_subnet.search(line).group('ip') +
                                                 '/' + re_subnet.search(line).group('mask'))
@@ -331,6 +340,9 @@ for line in f:
             newobj(srvgrp, re_srvgrp.search(line).group('srv_grp'))
         elif re_grpobj.search(line):
             fillobj(curobj, curname, 'object-group ' + re_grpobj.search(line).group('grp_obj'))
+        #elif re_srvobj2.search(line):
+        #                fillobj(curobj, curname, re_srvobj2.search(line).group('proto') + ':' +
+        #                     re_srvobj2.search(line).group('service'))
         elif re_srvobj.search(line):
             fillobj(curobj, curname, re_srvobj.search(line).group('proto') + ':' +
                     re_srvobj.search(line).group('service'))
@@ -370,7 +382,7 @@ for line in f:
         elif re_aclgrp.search(line):
             aclnames[re_aclgrp.search(line).group('acl_name')] = re_aclgrp.search(line).group('acl_int')
 
-print(str(meraki_acl_json))
+pprint(meraki_acl_json)
 
 #print JSON in File
 #with open('config_meraki_json-txt', 'w') as json_file:

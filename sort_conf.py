@@ -7,8 +7,9 @@
 import string
 import argparse
 import re
+from re import search
 import sys
-import pprint
+from pprint import pprint
 import meraki_api
 import json
 
@@ -249,16 +250,19 @@ args = parser.parse_args()
 
 # if args.acl or args.meraki: args.html=False
 args.html = False
-args.meraki_json = True
+args.meraki_json = False
 args.acl = False
+args.sort_config = True
 
 netobj = {}  # network-objects
 netgrp = {}  # network-groups
+srvobj = {}  # service-object
 srvgrp = {}  # service-groups
 aclmode = False
 rulecnt = 0  # ACL rule counter
 curacl = ''  # current ACL name
 aclnames = {}  # ACL names and interfaces
+sortlist = {} #Dict with List for sorted config
 meraki_acl_json = []
 # global curobj points to the current dict: netobj, netgrp or srvgrp
 # global curname points to the current object name
@@ -269,6 +273,8 @@ meraki_acl_json = []
 re_hostname = re.compile('^\s*hostname\s+(?P<hostname>\S+)', re.IGNORECASE)
 # object network mynet1
 re_objnet = re.compile('^\s*object\s+network\s+(?P<obj_name>\S+)', re.IGNORECASE)
+# object service mynet1
+re_objsrv = re.compile('^\s*object\s+service\s+(?P<obj_name>\S+)', re.IGNORECASE)
 # subnet 10.1.2.0 255.255.255.0
 re_subnet = re.compile('^\s*subnet\s+(?P<ip>\S+)\s+(?P<mask>\S+)', re.IGNORECASE)
 # host 10.2.1.41
@@ -291,6 +297,8 @@ re_portobj = re.compile('^\s*port-object\s+(?P<service>.*$)', re.IGNORECASE)
 re_grpobj = re.compile('^\s*group-object\s+(?P<grp_obj>\S+)', re.IGNORECASE)
 # service-object tcp destination eq 123
 re_srvobj = re.compile('^\s*service-object\s+(?P<proto>\S+)(\s+destination)?\s+(?P<service>.*$)', re.IGNORECASE)
+# service tcp destination eq 123
+re_srvobj2 = re.compile('^\s*service\s+(?P<proto>\S+)(\s+destination)?\s+(?P<service>.*$)', re.IGNORECASE)
 # service-object 97
 re_srvobj_ip = re.compile('^\s*service-object\s+(?P<proto>\d+)', re.IGNORECASE)
 # access-list acl_name extended ...
@@ -303,7 +311,7 @@ re_aclname = re.compile('^\s*access-list\s+(?P<acl_name>\S+)\s+', re.IGNORECASE)
 re_aclgrp = re.compile('^\s*access-group\s+(?P<acl_name>\S+)\s+(?P<acl_int>.*$)', re.IGNORECASE)
 
 # f=sys.stdin if "-" == args.conf else open ("test_conf","r")
-f = open("conf_dev-dmz.txt", "r")
+f = open("fw00-wip.noham.conf", "r")
 
 for line in f:
     line = line.strip()
@@ -312,27 +320,29 @@ for line in f:
         if args.html and re_hostname.search(line):
             html_hdr(re_hostname.search(line).group('hostname'))
         elif re_objnet.search(line):
-            newobj(netobj, re_objnet.search(line).group('obj_name'))
+            newobj(netobj, 'object network ' + re_objnet.search(line).group('obj_name'))
+        elif re_objsrv.search(line):
+            newobj(srvobj, 'object service ' + re_objsrv.search(line).group('obj_name'))
         elif re_subnet.search(line):
-            curobj[curname] = netaddr.IPNetwork(re_subnet.search(line).group('ip') +
-                                                '/' + re_subnet.search(line).group('mask'))
+            curobj[curname] = 'subnet ' + re_subnet.search(line).group('ip') + ' ' + re_subnet.search(line).group('mask')
         elif re_host.search(line):
-            curobj[curname] = netaddr.IPNetwork(re_host.search(line).group('ip') + '/32')
+            curobj[curname] = 'host ' + re_host.search(line).group('ip')
+        elif re_srvobj2.search(line):
+            curobj[curname] = 'service ' + re_srvobj2.search(line).group('proto') + ' destination ' + re_srvobj2.search(line).group('service')
         elif re_netgrp.search(line):
-            newobj(netgrp, re_netgrp.search(line).group('net_grp'))
+            newobj(netgrp, 'object-group network ' + re_netgrp.search(line).group('net_grp'))
         elif re_netobj_host.search(line):
-            fillobj(curobj, curname, netaddr.IPNetwork(re_netobj_host.search(line).group('ip') + '/32'))
+            fillobj(curobj, curname, 'network-object host' + re_netobj_host.search(line).group('ip'))
         elif re_netobj_obj.search(line):
-            fillobj(curobj, curname, 'net-object ' + re_netobj_obj.search(line).group('obj_name'))
+            fillobj(curobj, curname, 'network-object object ' + re_netobj_obj.search(line).group('obj_name'))
         elif re_netobj.search(line):
-            fillobj(curobj, curname, netaddr.IPNetwork(re_netobj.search(line).group('ip') +
-                                                       '/' + re_netobj.search(line).group('mask')))
+            fillobj(curobj, curname, 'network-object ' + re_netobj.search(line).group('ip') + ' ' + re_netobj.search(line).group('mask'))
         elif re_srvgrp.search(line):
-            newobj(srvgrp, re_srvgrp.search(line).group('srv_grp'))
+            newobj(srvgrp, 'object-group service ' + re_srvgrp.search(line).group('srv_grp'))
         elif re_grpobj.search(line):
             fillobj(curobj, curname, 'object-group ' + re_grpobj.search(line).group('grp_obj'))
         elif re_srvobj.search(line):
-            fillobj(curobj, curname, re_srvobj.search(line).group('proto') + ':' +
+            fillobj(curobj, curname, 'service-object ' + re_srvobj.search(line).group('proto') + ' destination ' +
                     re_srvobj.search(line).group('service'))
         elif re_srvgrp_proto.search(line):
             newobj(srvgrp, re_srvgrp_proto.search(line).group('srv_grp'))
@@ -343,8 +353,9 @@ for line in f:
             fillobj(curobj, curname, re_srvobj_ip.search(line).group('proto'))
         elif re_isacl.search(line):
             aclmode = True
-            unfold(netgrp)
-            unfold(srvgrp)
+            #unfold(netgrp)
+            #unfold(srvgrp)
+
 
     # Parsing access-lists
     if aclmode:
@@ -357,27 +368,58 @@ for line in f:
                     if rulecnt: html_tbl_ftr()
                     html_tbl_hdr(curacl)
                 rulecnt = 1
-            r = Rule(rulecnt, line)
+                sortlist[curacl] = {'netobj':[],'netgrp':[],'srvgrp':[],'acl':[],'interface':''}
+            #r = Rule(rulecnt, line)
             if args.html:
                 r.html()
             # Create ACL in Meraki JSON Format and put all in the meraki_json_list
             elif args.meraki_json:
                 meraki_acl_json.extend(r.meraki_json())
-            else:
-                r.rprint()
-            rulecnt += 1
+            elif args.sort_config:
+                #get unique objects in acl
+                for obj in netobj:
+                    for word in line.split(' '):
+                        if obj.endswith(word) and obj not in sortlist[curacl]['netobj']:
+                            sortlist[curacl]['netobj'].append(obj)
+                            sortlist[curacl]['netobj'].append(netobj[obj])
+                for obj in netgrp:
+                    for word in line.split(' '):
+                        if obj.endswith(word) and obj not in sortlist[curacl]['netgrp']:
+                            sortlist[curacl]['netgrp'].append(obj)
+                            sortlist[curacl]['netgrp'].append(netgrp[obj])
+                            for obj2 in netgrp[obj]:
+                                for word2 in obj2.split(' '):
+                                    if obj2.endswith(word2) and obj2 not in sortlist[curacl]['netobj'] and search('network-object object', obj2):
+                                        sortlist[curacl]['netobj'].append('object network '+word2)
+                                        sortlist[curacl]['netobj'].append(netobj['object network '+word2])
+                for obj in srvgrp:
+                    for word in line.split(' '):
+                        if obj.endswith(word) and obj not in sortlist[curacl]['srvgrp']:
+                            sortlist[curacl]['srvgrp'].append(obj)
+                            sortlist[curacl]['srvgrp'].append(srvgrp[obj])
+                sortlist[curacl]['acl'].append(line)
+
         # Assign interfaces and directions to the corresponding access-groups
         elif re_aclgrp.search(line):
             aclnames[re_aclgrp.search(line).group('acl_name')] = re_aclgrp.search(line).group('acl_int')
+            for key in aclnames:
+                if len(aclnames[key].split()) > 1:
+                    sortlist[key]['interface'] = aclnames[key].split()[2]
+                else:
+                    sortlist[key]['interface'] = aclnames[key]
 
-print(str(meraki_acl_json))
+print(sortlist.keys())
+print(sortlist[sortlist.keys()[0]].keys())
+pprint(sortlist)
+
+#print(str(meraki_acl_json))
 
 #print JSON in File
 #with open('config_meraki_json-txt', 'w') as json_file:
 #    json.dump(meraki_acl_json, json_file)
 
 # set Meraki Rules in the Dashboard
-meraki_api.set_meraki_rule(meraki_acl_json)
+#meraki_api.set_meraki_rule(meraki_acl_json)
 
 if args.html:
     html_tbl_ftr()

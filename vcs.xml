@@ -10,6 +10,10 @@
           <option name="url" value="http://code.avodaq.com" />
           <option name="userName" value="flange" />
         </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="https://code.avodaq.com/flange/meraki_add_rule_excel" />
+          <option name="userName" value="" />
+        </UrlAndUserName>
       </list>
     </option>
     <option name="cloneParentDir" value="C:\Users\flange\PycharmProjects" />
